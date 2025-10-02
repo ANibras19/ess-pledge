@@ -1,7 +1,6 @@
 import React from "react";
 import { BrowserRouter as Router, Routes, Route, Link } from "react-router-dom";
 import Landing from "./pages/Landing";
-import PledgeWall from "./pages/PledgeWall";
 import Admin from "./pages/Admin";
 
 const API_BASE = process.env.REACT_APP_API_BASE || "http://127.0.0.1:5000";
@@ -14,7 +13,6 @@ function App() {
         <header style={styles.header}>
           <nav style={styles.nav}>
             <Link to="/" style={styles.link}>Home</Link>
-            <Link to="/wall" style={styles.link}>Wall</Link>
             <Link to="/admin" style={styles.link}>Admin</Link>
           </nav>
         </header>
@@ -22,7 +20,6 @@ function App() {
         <main style={styles.main}>
           <Routes>
             <Route path="/" element={<Landing />} />
-            <Route path="/wall" element={<PledgeWall />} />
             <Route path="/admin" element={<Admin />} />
           </Routes>
         </main>

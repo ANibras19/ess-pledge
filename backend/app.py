@@ -5,129 +5,125 @@ from jinja2 import Template
 from flask_sqlalchemy import SQLAlchemy
 from models import db, User
 from dotenv import load_dotenv
-from cloudinary.utils import cloudinary_url
 from sqlalchemy.exc import IntegrityError
-import cloudinary, cloudinary.uploader
-cloudinary.config(
-    cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
-    api_key=os.getenv("CLOUDINARY_API_KEY"),
-    api_secret=os.getenv("CLOUDINARY_API_SECRET"),
-    secure=True,
-)
+import sendgrid
+from sendgrid.helpers.mail import Mail
 
+# Load env
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app)
+
+# Allow frontend origins
+CORS(app, resources={r"/*": {
+    "origins": [
+        "http://localhost:3000",
+        "https://pfs-fsbcologne2025.netlify.app"
+    ]
+}})
 
 # DB setup (SQLite for dev, can switch to Postgres on Render)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
 db.init_app(app)
 
 with app.app_context():
     db.create_all()
 
-# --- ROUTES ---
-
+# --- Helpers ---
 def render_email_template(name):
     with open("templates/thank_you_email.html") as f:
         html = f.read()
     return Template(html).render(name=name)
 
+def send_thank_you_email(email, name):
+    try:
+        sg = sendgrid.SendGridAPIClient(api_key=os.getenv("SENDGRID_API_KEY"))
 
+        html_content = render_email_template(name)
+
+        message = Mail(
+            from_email=os.getenv("FROM_EMAIL", "noreply@pfs-fsbcologne.com"),
+            to_emails=email,
+            subject="Thank you for your Green Sports Pledge",
+            html_content=html_content,
+        )
+
+        response = sg.send(message)
+        print("📧 SendGrid response:", response.status_code)
+        return response.status_code == 202
+    except Exception as e:
+        print("❌ SendGrid error:", e)
+        return False
+
+# --- Routes ---
 @app.route("/")
 def home():
     return "Backend is running!"
 
-# --- add near your other helpers ---
-def upload_b64_datauri(b64_or_datauri: str) -> str:
-    # Ensure it's a data URI so Cloudinary treats it as base64 content
-    datauri = b64_or_datauri if b64_or_datauri.startswith("data:") \
-        else "data:image/png;base64," + b64_or_datauri
-
-    res = cloudinary.uploader.upload(
-        datauri,
-        folder=os.getenv("CLOUDINARY_UPLOAD_FOLDER", "ess/pledges"),
-        resource_type="image",
-        eager=_eager_overlay(),
-        overwrite=True,
-    )
-    el = res.get("eager")
-    if isinstance(el, list) and el and el[0].get("status") == "failed":
-        app.logger.warning("Overlay failed: %s", el[0].get("reason"))
-    return _pick_url(res)
-
-
-# --- SINGLE /api/submit route (replace your current one) ---
 @app.route("/api/submit", methods=["POST"])
 def submit_form():
     data = request.get_json(force=True) or {}
+    print("📥 Incoming submission:", data)   # DEBUG
 
     name = data.get("name")
     email = data.get("email")
-    company = data.get("company")
+    phone = data.get("phone")
     country = data.get("country")
     pledge = bool(data.get("pledge", False))
-    sports = ",".join(data.get("sports", []))
 
-    # selfie handling
-    photo_url = data.get("photo_url")
-    if not photo_url and data.get("photo_base64"):
-        try:
-            photo_url = upload_b64_datauri(data["photo_base64"])
-        except Exception as e:
-            app.logger.exception("Photo upload during submit failed: %s", e)
-            photo_url = None
+    interested = ",".join(data.get("interested", []))
+    looking_for = ",".join(data.get("lookingFor", []))
 
-    # upsert by email
-    existing = User.query.filter_by(email=email).first()
+    print(f"📝 Parsed -> name={name}, email={email}, phone={phone}, "
+          f"country={country}, pledge={pledge}, "
+          f"interested={interested}, looking_for={looking_for}")  # DEBUG
+
     created = False
-    if existing:
-        # Update existing record
-        existing.name = name or existing.name
-        existing.company = company or existing.company
-        existing.country = country or existing.country
-        existing.pledge = pledge
-        existing.sports = sports or existing.sports
-        if photo_url:
-            existing.photo_url = photo_url
-        db.session.commit()
-        email_ok = False  # avoid sending duplicate emails on updates
-        user = existing
-    else:
-        # Create new record
-        user = User(
-            name=name, email=email, company=company, country=country,
-            pledge=pledge, sports=sports, photo_url=photo_url
-        )
-        db.session.add(user)
-        try:
+    email_ok = False
+
+    try:
+        existing = User.query.filter_by(email=email).first()
+        if existing:
+            print("🔄 Updating existing user with email:", email)
+            existing.name = name or existing.name
+            existing.phone = phone or existing.phone
+            existing.country = country or existing.country
+            existing.pledge = pledge
+            existing.interested = interested or existing.interested
+            existing.looking_for = looking_for or existing.looking_for
+            db.session.commit()
+            user = existing
+        else:
+            print("➕ Creating new user with email:", email)
+            user = User(
+                name=name,
+                email=email,
+                phone=phone,
+                country=country,
+                pledge=pledge,
+                interested=interested,
+                looking_for=looking_for,
+            )
+            db.session.add(user)
             db.session.commit()
             created = True
-        except IntegrityError:
-            db.session.rollback()
-            # race-condition fallback: update instead
-            user = User.query.filter_by(email=email).first()
-            if user:
-                user.name = name or user.name
-                user.company = company or user.company
-                user.country = country or user.country
-                user.pledge = pledge
-                user.sports = sports or user.sports
-                if photo_url:
-                    user.photo_url = photo_url
-                db.session.commit()
-            created = False
-        email_ok = send_thank_you_email(email, name) if created else False
 
-    return jsonify({
-        "message": "Form processed",
-        "created": created,
-        "email_sent": email_ok,
-        "photo_url": user.photo_url
-    }), 201 if created else 200
+        # ✅ Always attempt to send email (new or update)
+        email_ok = send_thank_you_email(email, name)
+        print("📧 Email send attempted, success:", email_ok)
+
+        print("✅ Submission handled successfully for:", email)
+        return jsonify({
+            "message": "Form processed",
+            "created": created,
+            "email_sent": email_ok
+        }), 201 if created else 200
+
+    except Exception as e:
+        print("❌ Error in /api/submit:", str(e))  # DEBUG
+        db.session.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500
 
 # 2. Public pledges wall
 @app.route("/api/pledges", methods=["GET"])
@@ -141,12 +137,17 @@ def pledges():
 
 
 # 3. Admin stats (password protected)
+# 3. Admin stats (password protected)
 @app.route("/api/admin-stats", methods=["GET"])
 def admin_stats():
-    auth = request.headers.get("Authorization")
+    # Get token from header
+    token = (request.headers.get("Authorization") or "").replace("Bearer ", "").strip()
     admin_password = os.getenv("ADMIN_PASSWORD", "secret123")
 
-    if auth != f"Bearer {admin_password}":
+    print("🔑 Provided token:", token)          # DEBUG
+    print("🔐 Expected password:", admin_password)  # DEBUG
+
+    if token != admin_password:
         return jsonify({"error": "Unauthorized"}), 401
 
     users = User.query.all()
@@ -156,11 +157,11 @@ def admin_stats():
             "id": u.id,
             "name": u.name,
             "email": u.email,
-            "company": u.company,
-            "country": u.country,
-            "pledge": u.pledge,
-            "sports": u.sports,
-            "photo_url": u.photo_url
+            "phone": getattr(u, "phone", None),
+            "country": getattr(u, "country", None),
+            "pledge": getattr(u, "pledge", False),
+            "interested": (u.interested.split(",") if u.interested else []),
+            "lookingFor": (u.looking_for.split(",") if u.looking_for else []),
         })
     return jsonify({
         "count": len(data),

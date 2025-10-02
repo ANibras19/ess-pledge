@@ -11,21 +11,21 @@ function Admin() {
 
   // fetch stats
   const fetchStats = async (pwd) => {
-  try {
+    try {
       const res = await fetch(`${API_BASE}/api/admin-stats`, {
-      headers: { Authorization: `Bearer ${pwd}` },
+        headers: { Authorization: `Bearer ${pwd}` }, // ✅ frontend sends Bearer token
       });
       if (res.status === 401) {
-      setError("Unauthorized – wrong password.");
-      return;
+        setError("Unauthorized – wrong password.");
+        return;
       }
       const data = await res.json();
-      setUsers(data.pledges || []);   // ✅ changed to match new shape
+      setUsers(data.pledges || []);   // backend returns {"pledges": [...]}
       setError(null);
       setAuthed(true);
-  } catch (err) {
+    } catch (err) {
       setError("Error fetching admin stats: " + err.message);
-  }
+    }
   };
 
   // handle CSV export
@@ -36,25 +36,27 @@ function Admin() {
       "ID",
       "Name",
       "Email",
-      "Company",
+      "Phone",
       "Country",
       "Pledge",
-      "Sports",
-      "Photo URL",
+      "Interested",
+      "Looking For"
     ];
     const rows = users.map((u) => [
       u.id,
       u.name,
       u.email,
-      u.company || "",
+      u.phone || "",
       u.country || "",
       u.pledge ? "Yes" : "No",
-      u.sports || "",
-      u.photo_url || "",
+      (u.interested || []).join(", "),
+      (u.lookingFor || []).join(", ")
     ]);
 
     const csvContent =
-      [headers, ...rows].map((r) => r.map((x) => `"${x}"`).join(",")).join("\n");
+      [headers, ...rows]
+        .map((r) => r.map((x) => `"${x}"`).join(","))
+        .join("\n");
 
     const blob = new Blob([csvContent], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -101,11 +103,11 @@ function Admin() {
               <th>ID</th>
               <th>Name</th>
               <th>Email</th>
-              <th>Company</th>
+              <th>Phone</th>
               <th>Country</th>
               <th>Pledge</th>
-              <th>Sports</th>
-              <th>Photo</th>
+              <th>Interested</th>
+              <th>Looking For</th>
             </tr>
           </thead>
           <tbody>
@@ -114,19 +116,11 @@ function Admin() {
                 <td>{u.id}</td>
                 <td>{u.name}</td>
                 <td>{u.email}</td>
-                <td>{u.company}</td>
+                <td>{u.phone}</td>
                 <td>{u.country}</td>
                 <td>{u.pledge ? "✅" : "❌"}</td>
-                <td>{u.sports}</td>
-                <td>
-                  {u.photo_url ? (
-                    <a href={u.photo_url} target="_blank" rel="noreferrer">
-                      View
-                    </a>
-                  ) : (
-                    "-"
-                  )}
-                </td>
+                <td>{(u.interested || []).join(", ")}</td>
+                <td>{(u.lookingFor || []).join(", ")}</td>
               </tr>
             ))}
           </tbody>

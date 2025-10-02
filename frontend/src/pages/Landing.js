@@ -1,6 +1,5 @@
 import React, { useState, useContext, useEffect } from "react";
 import { ApiContext } from "../App";
-import CameraModal from "../components/CameraModal";
 
 function Landing() {
   const API_BASE = useContext(ApiContext);
@@ -13,15 +12,12 @@ function Landing() {
     pledge: false,
     interested: [],
     lookingFor: [],
-    photo_base64: "",
   };
 
   const [form, setForm] = useState(initialForm);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
-  const [cameraOpen, setCameraOpen] = useState(false);
   const [showConsent, setShowConsent] = useState(false);
-  const [consentOpen, setConsentOpen] = useState(false);
 
   // countries.json
   const [countries, setCountries] = useState([]);
@@ -78,10 +74,41 @@ function Landing() {
     setForm((prev) => ({ ...prev, pledge: !prev.pledge }));
   };
 
-  // --- submit (with consent)
+  // --- submit (opens consent first)
   const handleSubmit = (e) => {
     e.preventDefault();
-    setConsentOpen(true);
+    setShowConsent(true);
+  };
+
+  // --- final confirm submit to backend
+  const confirmSubmit = async () => {
+    setLoading(true);
+    setShowConsent(false);
+    setMessage(null);
+
+    try {
+      const res = await fetch(`${API_BASE}/api/submit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setMessage({ type: "success", text: "✅ Thank you for your pledge!" });
+        setForm(initialForm); // reset form
+      } else {
+        setMessage({
+          type: "error",
+          text: data.error || "Something went wrong. Please try again.",
+        });
+      }
+    } catch (err) {
+      console.error("Submit failed:", err);
+      setMessage({ type: "error", text: "Network error. Please try again." });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -140,32 +167,37 @@ function Landing() {
         />
 
         {/* Country with search */}
-        <input
-          style={styles.input}
-          type="text"
-          name="country"
-          placeholder="Country"
-          value={form.country}
-          onChange={handleChange}
-          autoComplete="off"
-        />
-        {form.country && (
-          <div style={styles.dropdown}>
-            {filteredCountries.slice(0, 6).map((c) => (
-              <div
-                key={c}
-                style={styles.dropdownItem}
-                onClick={() => setForm((prev) => ({ ...prev, country: c }))}
-              >
-                {c}
-              </div>
-            ))}
-          </div>
-        )}
+        <div style={{ position: "relative" }}>
+          <input
+            style={styles.input}
+            type="text"
+            name="country"
+            placeholder="Country"
+            value={form.country}
+            onChange={handleChange}
+            autoComplete="off"
+          />
+          {form.country && filteredCountries.length > 0 && (
+            <div style={styles.dropdown}>
+              {filteredCountries.slice(0, 6).map((c) => (
+                <div
+                  key={c}
+                  style={styles.dropdownItem}
+                  onClick={() => {
+                    setForm((prev) => ({ ...prev, country: c }));
+                    setFilteredCountries([]); // ✅ close dropdown after select
+                  }}
+                >
+                  {c}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* Interested In */}
         <div style={styles.section}>
-          <p style={styles.label}>I am Interested in (you may select more than one) :</p>
+          <p style={styles.label}>I am Interested in (you may select more than one):</p>
           <div style={styles.sports}>
             {interestedOptions.map((opt) => {
               const active = (form.interested || []).includes(opt);
@@ -188,7 +220,7 @@ function Landing() {
 
         {/* Looking For */}
         <div style={styles.section}>
-          <p style={styles.label}>I am looking for (you may select more than one) :</p>
+          <p style={styles.label}>I am looking for (you may select more than one):</p>
           <div style={styles.sports}>
             {lookingOptions.map((opt) => {
               const active = (form.lookingFor || []).includes(opt);
@@ -209,53 +241,28 @@ function Landing() {
           </div>
         </div>
 
-        {/* Selfie */}
-        <div style={styles.section}>
-          <p style={styles.label}>Add a selfie (optional):</p>
-          <button
-            type="button"
-            style={styles.buttonAlt}
-            onClick={() => setCameraOpen(true)}
-          >
-            📷 Use Camera
-          </button>
-          {form.photo_base64 && (
-            <img src={form.photo_base64} alt="preview" style={styles.preview} />
-          )}
-        </div>
-
-        <CameraModal
-          isOpen={cameraOpen}
-          onClose={() => setCameraOpen(false)}
-          onCapture={(dataUrl) =>
-            setForm((prev) => ({ ...prev, photo_base64: dataUrl }))
-          }
-        />
-
         {/* Contact Cards */}
         <div style={styles.contactsSection}>
           <h3 style={styles.contactsTitle}>Connect with Our Team at FSB 2025</h3>
           <div style={styles.contactCards}>
-            {/* Member 1 */}
             <a href="/contacts/member1.vcf" download style={styles.contactCard}>
               <img src="/member1.jpeg" alt="Mr. Shadab Karim" style={styles.contactPhoto} />
               <div style={styles.contactInfo}>
-                <p style={styles.contactName}><b>Mr. Shadab Karim</b></p>
-                <p style={styles.contactDesignation}>Director</p>
-                <p style={styles.contactCompany}>PFS Group of Companies</p>
-                <p style={styles.contactPhone}>📞 +971553406451</p>
-                <p style={styles.contactEmail}>✉️ export@pfs-eu.pl</p>
+                <p><b>Mr. Shadab Karim</b></p>
+                <p>Director</p>
+                <p>PFS Group of Companies</p>
+                <p>📞 +971553406451</p>
+                <p>✉️ export@pfs-eu.pl</p>
               </div>
             </a>
-            {/* Member 2 */}
             <a href="/contacts/member2.vcf" download style={styles.contactCard}>
               <img src="/member2.jpeg" alt="Mr. Fahad Mon" style={styles.contactPhoto} />
               <div style={styles.contactInfo}>
-                <p style={styles.contactName}><b>Mr. Fahad Mon</b></p>
-                <p style={styles.contactDesignation}>Intl. Sales Consultant</p>
-                <p style={styles.contactCompany}>PFS Group of Companies</p>
-                <p style={styles.contactPhone}>📞 +971582761390</p>
-                <p style={styles.contactEmail}>✉️ sales@pfs-eu.pl</p>
+                <p><b>Mr. Fahad Mon</b></p>
+                <p>Intl. Sales Consultant</p>
+                <p>PFS Group of Companies</p>
+                <p>📞 +971582761390</p>
+                <p>✉️ sales@pfs-eu.pl</p>
               </div>
             </a>
           </div>
@@ -273,19 +280,20 @@ function Landing() {
           <div style={styles.modal}>
             <h2>Consent for Data Use</h2>
             <ul style={{ textAlign: "left", padding: "1rem" }}>
-              <li>Data Collection – Your name, email, phone/WhatsApp, country, and optional selfie are collected only for pledge verification and communication purposes.</li>
-              <li>Purpose of Use – The data may be used to share updates, offers, and information about sustainable sports, investments, and related products.</li>
-              <li>Marketing Communications – We may contact you via email, WhatsApp, or phone with relevant updates and marketing content, in line with your expressed interests.</li>
-              <li>Data Sharing & Storage – Your information will not be sold. It may be securely shared only with our group companies and official partners for the stated purposes. Data is stored in compliance with GDPR and international data protection standards.</li>
-              <li>Your Rights – You can withdraw consent or request deletion of your data at any time by contacting us.</li>
+              <li>We collect your name, email, phone/WhatsApp, and country for pledge purposes.</li>
+              <li>We may share updates and offers related to sustainable sports and products.</li>
+              <li>Your data will not be sold and is stored securely under GDPR standards.</li>
+              <li>You can withdraw consent or request deletion anytime.</li>
             </ul>
             <div style={{ display: "flex", gap: "1rem", justifyContent: "center" }}>
-              <button style={styles.button} onClick={handleSubmit}>Yes, I Consent</button>
+              <button style={styles.button} onClick={confirmSubmit}>Yes, I Consent</button>
               <button style={{ ...styles.button, background: "#991b1b", color: "white" }} onClick={() => setShowConsent(false)}>No, Cancel</button>
             </div>
           </div>
         </div>
       )}
+
+      {/* Message */}
       {message && (
         <div
           style={{
@@ -310,6 +318,31 @@ const styles = {
     background: "#fffbea", // light yellow background for contrast
     borderRadius: "16px",
     boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+  },
+  dropdown: {
+    position: "absolute",
+    top: "100%",
+    left: 0,
+    right: 0,
+    background: "#fff",
+    border: "1px solid #ccc",
+    borderRadius: "8px",
+    marginTop: "2px",
+    zIndex: 50,
+    maxHeight: "150px",
+    overflowY: "auto",
+    boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
+  },
+
+  dropdownItem: {
+    padding: "0.5rem 0.75rem",
+    cursor: "pointer",
+    fontSize: "0.95rem",
+    color: "#333",
+  },
+
+  dropdownItemHover: {
+    background: "#f3f4f6",
   },
   title: {
     fontSize: "2rem",
