@@ -21,6 +21,7 @@ function Landing() {
   const [message, setMessage] = useState(null);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [showConsent, setShowConsent] = useState(false);
+  const [consentOpen, setConsentOpen] = useState(false);
 
   // countries.json
   const [countries, setCountries] = useState([]);
