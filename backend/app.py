@@ -19,7 +19,9 @@ CORS(app, resources={r"/*": {
     "origins": [
         "http://localhost:3000",
         "https://pfs-fsbcologne2025.netlify.app"
-    ]
+    ],
+    "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    "allow_headers": ["Content-Type", "Authorization"]
 }})
 
 # DB setup (SQLite for dev, can switch to Postgres on Render)
