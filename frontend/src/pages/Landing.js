@@ -20,7 +20,6 @@ function Landing() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
   const [cameraOpen, setCameraOpen] = useState(false);
-  const [consentOpen, setConsentOpen] = useState(false);
   const [showConsent, setShowConsent] = useState(false);
 
   // countries.json
@@ -82,37 +81,6 @@ function Landing() {
   const handleSubmit = (e) => {
     e.preventDefault();
     setConsentOpen(true);
-  };
-
-  const confirmSubmit = async () => {
-    setConsentOpen(false);
-    setLoading(true);
-    setMessage(null);
-
-    try {
-      const res = await fetch(`${API_BASE}/api/submit`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setMessage({
-          type: "success",
-          text: "✅ Thank you! Your pledge has been recorded.",
-        });
-        setForm(initialForm);
-      } else {
-        setMessage({
-          type: "error",
-          text: "❌ Something went wrong: " + (data.error || data.message),
-        });
-      }
-    } catch (err) {
-      setMessage({ type: "error", text: "❌ Network error: " + err.message });
-    } finally {
-      setLoading(false);
-    }
   };
 
   return (

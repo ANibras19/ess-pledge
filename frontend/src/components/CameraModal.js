@@ -5,7 +5,7 @@ function CameraModal({ isOpen, onClose, onCapture }) {
   const canvasRef = useRef(null);
   const [stream, setStream] = useState(null);
 
-  // start camera when modal opens
+  // start/stop camera when modal opens/closes
   useEffect(() => {
     if (isOpen) {
       navigator.mediaDevices
@@ -19,13 +19,15 @@ function CameraModal({ isOpen, onClose, onCapture }) {
         .catch((err) => {
           console.error("Camera error:", err);
         });
-    }
-    return () => {
+    } else {
+      // cleanup when closed
       if (stream) {
         stream.getTracks().forEach((track) => track.stop());
+        setStream(null);
       }
-    };
-  }, [isOpen]);
+    }
+    // ✅ include stream so ESLint is happy
+  }, [isOpen, stream]);
 
   const handleCapture = () => {
     const video = videoRef.current;
