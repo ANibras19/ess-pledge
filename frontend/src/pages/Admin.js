@@ -1,177 +1,216 @@
-import React, { useState, useEffect } from "react";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
+import React, { useState, useContext } from "react";
+import { ApiContext } from "../App";
 
 function Admin() {
-  const [data, setData] = useState([]);
+  const API_BASE = useContext(ApiContext);
+
   const [password, setPassword] = useState("");
   const [authed, setAuthed] = useState(false);
-  const [error, setError] = useState("");
+  const [users, setUsers] = useState([]);
+  const [error, setError] = useState(null);
 
-  useEffect(() => {
-    if (!authed) return;
-
-    fetch("/api/admin-stats", {
-      headers: { Authorization: `Bearer ${password}` },
-    })
-      .then((res) => {
-        if (res.status === 401) throw new Error("Unauthorized");
-        return res.json();
-      })
-      .then((json) => {
-        setData(json.pledges || []);
-        setError("");
-      })
-      .catch((err) => {
-        setError("Failed to fetch admin data: " + err.message);
+  // fetch stats
+  const fetchStats = async (pwd) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/admin-stats`, {
+        headers: { Authorization: `Bearer ${pwd}` },
       });
-  }, [authed, password]);
+      if (res.status === 401) {
+        setError("Unauthorized – wrong password.");
+        return;
+      }
+      const data = await res.json();
+      setUsers(data.pledges || []);
+      setError(null);
+      setAuthed(true);
+    } catch (err) {
+      setError("Error fetching admin stats: " + err.message);
+    }
+  };
 
-  // --- Chart preprocessing ---
-  const chartData = [
-    {
-      name: "Investment",
-      count: data.filter((d) =>
-        d.interested?.toLowerCase().includes("investment")
-      ).length,
-    },
-    {
-      name: "Dealership",
-      count: data.filter((d) =>
-        d.interested?.toLowerCase().includes("dealership")
-      ).length,
-    },
-    {
-      name: "Others",
-      count: data.filter((d) =>
-        d.interested?.toLowerCase().includes("others")
-      ).length,
-    },
-  ];
+  // handle CSV export
+  const exportCSV = () => {
+    if (users.length === 0) return;
+
+    const headers = [
+      "ID",
+      "Name",
+      "Email",
+      "Phone",
+      "Country",
+      "Pledge",
+      "Interested",
+      "Looking For",
+    ];
+    const rows = users.map((u) => [
+      u.id,
+      u.name,
+      u.email,
+      u.phone || "",
+      u.country || "",
+      u.pledge ? "Yes" : "No",
+      (u.interested || []).join(", "),
+      (u.lookingFor || []).join(", "),
+    ]);
+
+    const csvContent =
+      [headers, ...rows]
+        .map((r) => r.map((x) => `"${x}"`).join(","))
+        .join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "pledges.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   if (!authed) {
     return (
       <div style={styles.container}>
-        <h2>Admin Login</h2>
+        <h1 style={styles.title}>Admin Dashboard 🔐</h1>
+        <p style={styles.subtitle}>Enter admin password to continue.</p>
+
         <input
           type="password"
-          placeholder="Enter Admin Password"
+          placeholder="Password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           style={styles.input}
         />
-        <button onClick={() => setAuthed(true)} style={styles.button}>
+        <button style={styles.button} onClick={() => fetchStats(password)}>
           Login
         </button>
-        {error && <p style={{ color: "red" }}>{error}</p>}
+
+        {error && <p style={styles.error}>{error}</p>}
       </div>
     );
   }
 
   return (
     <div style={styles.container}>
-      <h1>Admin Dashboard</h1>
+      <h1 style={styles.title}>Admin Dashboard 📊</h1>
+      <button style={styles.exportBtn} onClick={exportCSV}>
+        Export CSV
+      </button>
 
-      {error && <p style={{ color: "red" }}>{error}</p>}
-
-      {/* Debug JSON */}
-      <h3>Debug (Raw Data):</h3>
-      <pre style={styles.debugBox}>
-        {JSON.stringify(data, null, 2)}
-      </pre>
-
-      {/* Table */}
-      <table style={styles.table}>
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Email</th>
-            <th>Phone</th>
-            <th>Country</th>
-            <th>Pledge</th>
-            <th style={{ width: "250px" }}>Interested</th>
-            <th>Looking For</th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.map((u) => (
-            <tr key={u.id}>
-              <td>{u.name}</td>
-              <td>{u.email}</td>
-              <td>{u.phone}</td>
-              <td>{u.country}</td>
-              <td>{u.pledge ? "✅" : "❌"}</td>
-              <td>{u.interested || "-"}</td>
-              <td>{u.looking_for || "-"}</td>
+      <div style={styles.tableWrapper}>
+        <table style={styles.table}>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Phone</th>
+              <th>Country</th>
+              <th>Pledge</th>
+              <th>Interested</th>
+              <th style={{ minWidth: "200px" }}>Looking For</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-
-      {/* Chart */}
-      <h3 style={{ marginTop: "2rem" }}>Interest Breakdown</h3>
-      <ResponsiveContainer width="100%" height={300}>
-        <BarChart data={chartData}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="name" />
-          <YAxis allowDecimals={false} />
-          <Tooltip />
-          <Bar dataKey="count" fill="#0d9488" />
-        </BarChart>
-      </ResponsiveContainer>
+          </thead>
+          <tbody>
+            {users.map((u, idx) => (
+              <tr
+                key={u.id}
+                style={{
+                  background: idx % 2 === 0 ? "#f9fafb" : "white",
+                  transition: "background 0.2s ease",
+                }}
+              >
+                <td>{u.id}</td>
+                <td>{u.name}</td>
+                <td>{u.email}</td>
+                <td>{u.phone}</td>
+                <td>{u.country}</td>
+                <td style={{ textAlign: "center" }}>
+                  {u.pledge ? "✅" : "❌"}
+                </td>
+                <td>{(u.interested || []).join(", ")}</td>
+                <td>{(u.lookingFor || []).join(", ")}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
 
 const styles = {
   container: {
-    padding: "2rem",
+    padding: "1rem",
+    maxWidth: "95%",
+    margin: "auto",
     fontFamily: "system-ui, sans-serif",
   },
+  title: {
+    fontSize: "1.5rem",
+    fontWeight: "bold",
+    marginBottom: "0.25rem",
+    textAlign: "center",
+  },
+  subtitle: {
+    fontSize: "1rem",
+    color: "#555",
+    marginBottom: "1rem",
+    textAlign: "center",
+  },
   input: {
-    padding: "0.7rem",
+    padding: "0.75rem",
     border: "1px solid #ccc",
-    borderRadius: "6px",
-    marginRight: "1rem",
+    borderRadius: "8px",
+    fontSize: "1rem",
+    width: "100%",
+    marginBottom: "1rem",
   },
   button: {
-    padding: "0.7rem 1.2rem",
+    padding: "0.75rem",
     border: "none",
-    borderRadius: "6px",
+    borderRadius: "8px",
     background: "#0d9488",
     color: "white",
+    fontSize: "1rem",
+    fontWeight: "bold",
     cursor: "pointer",
+    width: "100%",
   },
-  debugBox: {
-    background: "#f3f4f6",
-    padding: "1rem",
+  error: {
+    color: "red",
+    marginTop: "0.5rem",
+    textAlign: "center",
+  },
+  exportBtn: {
+    background: "#1e3a8a",
+    color: "white",
+    padding: "0.5rem 1rem",
     borderRadius: "6px",
-    fontSize: "0.85rem",
-    maxHeight: "200px",
-    overflow: "auto",
+    marginBottom: "1rem",
+    cursor: "pointer",
+    border: "none",
+  },
+  tableWrapper: {
+    overflowX: "auto",
+    border: "1px solid #ddd",
+    borderRadius: "8px",
+    boxShadow: "0 2px 5px rgba(0,0,0,0.05)",
   },
   table: {
     width: "100%",
     borderCollapse: "collapse",
-    marginTop: "1rem",
+    fontSize: "0.9rem",
   },
-  th: {
-    border: "1px solid #ccc",
-    padding: "8px",
-    background: "#e2e8f0",
+  "table th": {
+    background: "#0d9488",
+    color: "white",
+    padding: "0.75rem",
     textAlign: "left",
+    border: "1px solid #ddd",
   },
-  td: {
-    border: "1px solid #ccc",
-    padding: "8px",
-    textAlign: "left",
+  "table td": {
+    border: "1px solid #ddd",
+    padding: "0.6rem",
   },
 };
 
