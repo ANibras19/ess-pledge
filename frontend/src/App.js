@@ -1,5 +1,5 @@
 import React from "react";
-import { BrowserRouter as Router, Routes, Route, Link } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route} from "react-router-dom";
 import Landing from "./pages/Landing";
 import Admin from "./pages/Admin";
 
@@ -10,13 +10,6 @@ function App() {
   return (
     <ApiContext.Provider value={API_BASE}>
       <Router>
-        <header style={styles.header}>
-          <nav style={styles.nav}>
-            <Link to="/" style={styles.link}>Home</Link>
-            <Link to="/admin" style={styles.link}>Admin</Link>
-          </nav>
-        </header>
-
         <main style={styles.main}>
           <Routes>
             <Route path="/" element={<Landing />} />
