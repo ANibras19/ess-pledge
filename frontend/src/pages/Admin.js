@@ -1,106 +1,178 @@
-import React, { useEffect, useState, useContext } from "react";
-import { ApiContext } from "../App";
+import React, { useState, useEffect } from "react";
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
 } from "recharts";
 
 function Admin() {
-  const API_BASE = useContext(ApiContext);
   const [data, setData] = useState([]);
-  const [counts, setCounts] = useState({ Investment: 0, Dealership: 0, Others: 0 });
+  const [password, setPassword] = useState("");
+  const [authed, setAuthed] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/admin-stats`, {
-      headers: { Authorization: `Bearer ${process.env.REACT_APP_ADMIN_PASSWORD || "secret123"}` }
+    if (!authed) return;
+
+    fetch("/api/admin-stats", {
+      headers: { Authorization: `Bearer ${password}` },
     })
-      .then(res => res.json())
-      .then(json => {
-        setData(json.pledges || []);
-        // count interested values
-        let c = { Investment: 0, Dealership: 0, Others: 0 };
-        (json.pledges || []).forEach(u => {
-          if (u.interested) {
-            u.interested.split(",").forEach(val => {
-              if (c[val]) c[val] += 1;
-            });
-          }
-        });
-        setCounts(c);
+      .then((res) => {
+        if (res.status === 401) throw new Error("Unauthorized");
+        return res.json();
       })
-      .catch(err => console.error("Admin fetch failed", err));
-  }, [API_BASE]);
+      .then((json) => {
+        setData(json.pledges || []);
+        setError("");
+      })
+      .catch((err) => {
+        setError("Failed to fetch admin data: " + err.message);
+      });
+  }, [authed, password]);
+
+  // --- Chart preprocessing ---
+  const chartData = [
+    {
+      name: "Investment",
+      count: data.filter((d) =>
+        d.interested?.toLowerCase().includes("investment")
+      ).length,
+    },
+    {
+      name: "Dealership",
+      count: data.filter((d) =>
+        d.interested?.toLowerCase().includes("dealership")
+      ).length,
+    },
+    {
+      name: "Others",
+      count: data.filter((d) =>
+        d.interested?.toLowerCase().includes("others")
+      ).length,
+    },
+  ];
+
+  if (!authed) {
+    return (
+      <div style={styles.container}>
+        <h2>Admin Login</h2>
+        <input
+          type="password"
+          placeholder="Enter Admin Password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          style={styles.input}
+        />
+        <button onClick={() => setAuthed(true)} style={styles.button}>
+          Login
+        </button>
+        {error && <p style={{ color: "red" }}>{error}</p>}
+      </div>
+    );
+  }
 
   return (
-    <div style={{ padding: "2rem", fontFamily: "Arial, sans-serif" }}>
-      <h1 style={{ textAlign: "center", marginBottom: "1rem" }}>Admin Dashboard</h1>
+    <div style={styles.container}>
+      <h1>Admin Dashboard</h1>
+
+      {error && <p style={{ color: "red" }}>{error}</p>}
+
+      {/* Debug JSON */}
+      <h3>Debug (Raw Data):</h3>
+      <pre style={styles.debugBox}>
+        {JSON.stringify(data, null, 2)}
+      </pre>
 
       {/* Table */}
-      <table style={{
-        width: "100%",
-        borderCollapse: "collapse",
-        marginBottom: "2rem",
-        boxShadow: "0 2px 6px rgba(0,0,0,0.1)"
-      }}>
-        <thead style={{ background: "#d6b228", color: "#fff" }}>
+      <table style={styles.table}>
+        <thead>
           <tr>
-            <th style={thStyle}>ID</th>
-            <th style={thStyle}>Name</th>
-            <th style={thStyle}>Email</th>
-            <th style={thStyle}>Phone</th>
-            <th style={thStyle}>Country</th>
-            <th style={thStyle}>Pledge</th>
-            <th style={{ ...thStyle, width: "250px" }}>Interested / Looking For</th>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Phone</th>
+            <th>Country</th>
+            <th>Pledge</th>
+            <th style={{ width: "250px" }}>Interested</th>
+            <th>Looking For</th>
           </tr>
         </thead>
         <tbody>
-          {data.map((u, i) => (
-            <tr key={u.id} style={{ background: i % 2 === 0 ? "#fffbea" : "#ffffff" }}>
-              <td style={tdStyle}>{u.id}</td>
-              <td style={tdStyle}>{u.name}</td>
-              <td style={tdStyle}>{u.email}</td>
-              <td style={tdStyle}>{u.phone || "-"}</td>
-              <td style={tdStyle}>{u.country}</td>
-              <td style={tdStyle}>{u.pledge ? "✅" : "❌"}</td>
-              <td style={{ ...tdStyle, textAlign: "left" }}>
-                {u.interested || "-"} {u.looking_for ? " / " + u.looking_for : ""}
-              </td>
+          {data.map((u) => (
+            <tr key={u.id}>
+              <td>{u.name}</td>
+              <td>{u.email}</td>
+              <td>{u.phone}</td>
+              <td>{u.country}</td>
+              <td>{u.pledge ? "✅" : "❌"}</td>
+              <td>{u.interested || "-"}</td>
+              <td>{u.looking_for || "-"}</td>
             </tr>
           ))}
         </tbody>
       </table>
 
       {/* Chart */}
-      <h2 style={{ textAlign: "center", marginBottom: "1rem" }}>Interests Overview</h2>
+      <h3 style={{ marginTop: "2rem" }}>Interest Breakdown</h3>
       <ResponsiveContainer width="100%" height={300}>
-        <BarChart data={[
-          { name: "Investment", value: counts.Investment },
-          { name: "Dealership", value: counts.Dealership },
-          { name: "Others", value: counts.Others }
-        ]}>
+        <BarChart data={chartData}>
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis dataKey="name" />
           <YAxis allowDecimals={false} />
           <Tooltip />
-          <Legend />
-          <Bar dataKey="value" fill="#d6b228" />
+          <Bar dataKey="count" fill="#0d9488" />
         </BarChart>
       </ResponsiveContainer>
     </div>
   );
 }
 
-const thStyle = {
-  padding: "10px",
-  border: "1px solid #ddd",
-  textAlign: "center",
-  fontWeight: "bold"
-};
-
-const tdStyle = {
-  padding: "10px",
-  border: "1px solid #ddd",
-  textAlign: "center",
-  fontSize: "14px"
+const styles = {
+  container: {
+    padding: "2rem",
+    fontFamily: "system-ui, sans-serif",
+  },
+  input: {
+    padding: "0.7rem",
+    border: "1px solid #ccc",
+    borderRadius: "6px",
+    marginRight: "1rem",
+  },
+  button: {
+    padding: "0.7rem 1.2rem",
+    border: "none",
+    borderRadius: "6px",
+    background: "#0d9488",
+    color: "white",
+    cursor: "pointer",
+  },
+  debugBox: {
+    background: "#f3f4f6",
+    padding: "1rem",
+    borderRadius: "6px",
+    fontSize: "0.85rem",
+    maxHeight: "200px",
+    overflow: "auto",
+  },
+  table: {
+    width: "100%",
+    borderCollapse: "collapse",
+    marginTop: "1rem",
+  },
+  th: {
+    border: "1px solid #ccc",
+    padding: "8px",
+    background: "#e2e8f0",
+    textAlign: "left",
+  },
+  td: {
+    border: "1px solid #ccc",
+    padding: "8px",
+    textAlign: "left",
+  },
 };
 
 export default Admin;
