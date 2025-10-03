@@ -20,7 +20,7 @@ CORS(app, resources={r"/*": {
         "http://localhost:3000",
         "https://pfs-fsbcologne2025.netlify.app"
     ],
-    "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    "methods": ["GET", "POST", "OPTIONS"],
     "allow_headers": ["Content-Type", "Authorization"]
 }})
 
@@ -47,7 +47,7 @@ def send_thank_you_email(email, name):
         message = Mail(
             from_email=os.getenv("FROM_EMAIL", "noreply@pfs-fsbcologne.com"),
             to_emails=email,
-            subject="Thank you for your Green Sports Pledge",
+            subject="Thank you for visiting PFS @ FSB Cologne 2025",
             html_content=html_content,
         )
 
