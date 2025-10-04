@@ -332,5 +332,48 @@ def send_thank_you_email(to_email, name, interested=None, looking_for=None):
         app.logger.exception(f"SendGrid error: {e}")
         return False
 
+# ---------------- Export Database as CSV (Corrected) ----------------
+import sqlite3, csv
+from io import StringIO
+from flask import Response, jsonify, request
+
+@app.route("/api/export-db", methods=["GET"])
+def export_db():
+    """Download all records from the user table as a CSV file."""
+    token = (request.headers.get("Authorization") or "").replace("Bearer ", "").strip()
+    admin_password = os.getenv("ADMIN_PASSWORD", "secret123")
+
+    if token != admin_password:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    try:
+        # ✅ Correct path for Render backend
+        conn = sqlite3.connect("backend/instance/database.db")
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM user")
+        rows = cur.fetchall()
+        headers = [desc[0] for desc in cur.description]
+        conn.close()
+
+        # Write CSV to memory
+        output = StringIO()
+        writer = csv.writer(output)
+        writer.writerow(headers)
+        writer.writerows(rows)
+        csv_data = output.getvalue()
+        output.close()
+
+        return Response(
+            csv_data,
+            mimetype="text/csv",
+            headers={
+                "Content-Disposition": "attachment; filename=pledges_export.csv"
+            },
+        )
+
+    except Exception as e:
+        app.logger.exception(f"DB export error: {e}")
+        return jsonify({"error": str(e)}), 500
+
 if __name__ == "__main__":
     app.run(debug=True)
