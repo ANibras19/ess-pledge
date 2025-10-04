@@ -7,7 +7,8 @@ from models import db, User
 from dotenv import load_dotenv
 from sqlalchemy.exc import IntegrityError
 import sendgrid
-from sendgrid.helpers.mail import Mail
+from sendgrid.helpers.mail import Mail, Attachment, FileContent, FileName, FileType, Disposition
+import base64
 
 # Load env
 load_dotenv()
@@ -316,6 +317,51 @@ def _cloudinary_debug():
         "folder": os.getenv("CLOUDINARY_UPLOAD_FOLDER"),
         "logo_id": os.getenv("CLOUDINARY_LOGO_PUBLIC_ID")
     })
+
+def attach_file(message, filepath, filename):
+    with open(filepath, "rb") as f:
+        data = f.read()
+        encoded = base64.b64encode(data).decode()
+        attachment = Attachment(
+            FileContent(encoded),
+            FileName(filename),
+            FileType("application/pdf"),
+            Disposition("attachment")
+        )
+        message.add_attachment(attachment)
+
+def send_thank_you_email(to_email, name, interested=None, looking_for=None):
+    sg = sendgrid.SendGridAPIClient(api_key=os.getenv("SENDGRID_API_KEY"))
+
+    with open("templates/thank_you_email.html", encoding="utf-8") as f:
+        html_template = f.read()
+
+    html_content = Template(html_template).render(
+        name=name,
+        interested=interested.split(",") if interested else [],
+        looking_for=looking_for.split(",") if looking_for else []
+    )
+
+    message = Mail(
+        from_email=os.getenv("FROM_EMAIL", "noreply@pfs-fsbcologne.com"),
+        to_emails=to_email,
+        subject="Thank You for Visiting PFS @ FSB Cologne 2025",
+        html_content=html_content,
+    )
+
+    # Attach all 6 brochures
+    brochures = [
+        ("static/PFS PADEL CATALOUGE.pdf", "PFS PADEL CATALOUGE.pdf"),
+        ("static/PFS PICKLEBALL CATALOGUE.pdf", "PFS PICKLEBALL CATALOGUE.pdf"),
+        ("static/POLSPAS CATALOGUE.pdf", "POLSPAS CATALOGUE.pdf"),
+        ("static/PFS CATALOGUE.pdf", "PFS CATALOGUE.pdf"),
+        ("static/PERGOLA CATALOGUE.pdf", "PERGOLA CATALOGUE.pdf"),
+        ("static/COLD PLUNG CATALOGUE.pdf", "COLD PLUNG CATALOGUE.pdf"),
+    ]
+    for path, fname in brochures:
+        attach_file(message, path, fname)
+
+    return sg.send(message)
 
 if __name__ == "__main__":
     app.run(debug=True)

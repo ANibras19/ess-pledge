@@ -31,10 +31,20 @@
                   We are delighted to share more information with you.
                 </p>
                 <p>
-                  📎 Attached you will find our <b>company brochure</b>, which gives you an overview of our 
-                  products and solutions. Since you have expressed interest in <b>dealership opportunities in Padel</b>, 
-                  we have also attached our <b>Dealership Application Form</b>. 
-                  Please complete it and return it at your convenience — our dedicated team will get in touch with you promptly.
+                  📎 Attached you will find our <b>company brochures</b>, which give you an overview of our 
+                  products and solutions across all our divisions. 
+
+                  {% if interested and looking_for %}
+                    Since you have expressed interest in 
+                    <b>{{ interested[0]|lower }} opportunities in {{ looking_for[0] }}</b>, 
+                    we will get in touch with you shortly.
+                  {% elif interested %}
+                    Since you have expressed interest in 
+                    <b>{{ interested[0]|lower }} opportunities</b>, 
+                    we will get in touch with you shortly.
+                  {% else %}
+                    We will get in touch with you shortly to explore opportunities together.
+                  {% endif %}
                 </p>
                 <p>
                   We are excited to explore this opportunity with you and look forward to welcoming you 
@@ -63,7 +73,7 @@
                     <!-- Fahad Mon -->
                     <td style="background:#ffffff; border:1px solid #ddd; border-radius:8px; padding:15px; text-align:center; vertical-align:top;">
                       <h3 style="margin:0; color:#0d9488;">Mr. Fahad Mon</h3>
-                      <p style="margin:5px 0; font-size:14px; color:#333;">Intl. Sales Consultant</p>
+                      <p style="margin:5px 0; font-size:14px; color:#333;">Sales Manager PFS-UAE</p>
                       <p style="margin:5px 0; font-size:14px; color:#555;">📞 +971582761390</p>
                       <p style="margin:5px 0; font-size:14px; color:#555;">✉️ sales@pfs-eu.pl</p>
                     </td>
