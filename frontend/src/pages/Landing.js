@@ -246,7 +246,7 @@ function Landing() {
           <h3 style={styles.contactsTitle}>Connect with Our Team at FSB 2025</h3>
           <div style={styles.contactCards}>
             <a href="/contacts/member1.vcf" download style={styles.contactCard}>
-              <img src="/member1.jpeg" alt="Mr. Shadab Karim" style={styles.contactPhoto} />
+              <img src="/member1.jpeg" alt="Shadab Karim" style={styles.contactPhoto} />
               <div style={styles.contactInfo}>
                 <p><b>Mr. Shadab Karim</b></p>
                 <p>Director</p>
@@ -256,10 +256,10 @@ function Landing() {
               </div>
             </a>
             <a href="/contacts/member2.vcf" download style={styles.contactCard}>
-              <img src="/member2.jpeg" alt="Mr. Fahad Mon" style={styles.contactPhoto} />
+              <img src="/member2.jpeg" alt="Fahad Mon" style={styles.contactPhoto} />
               <div style={styles.contactInfo}>
                 <p><b>Mr. Fahad Mon</b></p>
-                <p>Intl. Sales Consultant</p>
+                <p>Sales Manager PFS-UAE</p>
                 <p>PFS Group of Companies</p>
                 <p>📞 +971582761390</p>
                 <p>✉️ sales@pfs-eu.pl</p>
