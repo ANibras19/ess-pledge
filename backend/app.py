@@ -188,43 +188,6 @@ def send_thank_you_email(to_email, name):
     except Exception as e:
         print("Email send error:", e)
 
-def send_thank_you_email(to_email, name):
-    import os, sendgrid
-    from sendgrid.helpers.mail import Mail
-    from jinja2 import Template
-
-    sg = sendgrid.SendGridAPIClient(api_key=os.getenv("SENDGRID_API_KEY"))
-    from_addr = os.getenv("SENDGRID_FROM")
-
-    # Load and render external HTML template
-    try:
-        with open("templates/thank_you_email.html", encoding="utf-8") as f:
-            html_template = f.read()
-        html_content = Template(html_template).render(name=name)
-    except Exception as e:
-        app.logger.exception(f"Template load error: {e}")
-        # fallback simple message if template fails
-        html_content = f"""
-            <h2>Hi {name},</h2>
-            <p>Thank you for pledging to support green sports at <b>FSB Cologne</b>.</p>
-            <p>– The ESS Team</p>
-        """
-
-    message = Mail(
-        from_email=from_addr,
-        to_emails=to_email,
-        subject="Thank You for Joining the Green Sports Pledge!",
-        html_content=html_content,
-    )
-
-    try:
-        resp = sg.send(message)
-        app.logger.info(f"SendGrid status={resp.status_code}")
-        return resp.status_code == 202
-    except Exception as e:
-        app.logger.exception(f"SendGrid error: {e}")
-        return False
-
 @app.route("/api/test-email", methods=["POST"])
 def test_email():
     data = request.json or {}
@@ -318,21 +281,11 @@ def _cloudinary_debug():
         "logo_id": os.getenv("CLOUDINARY_LOGO_PUBLIC_ID")
     })
 
-def attach_file(message, filepath, filename):
-    with open(filepath, "rb") as f:
-        data = f.read()
-        encoded = base64.b64encode(data).decode()
-        attachment = Attachment(
-            FileContent(encoded),
-            FileName(filename),
-            FileType("application/pdf"),
-            Disposition("attachment")
-        )
-        message.add_attachment(attachment)
-
 def send_thank_you_email(to_email, name, interested=None, looking_for=None):
     sg = sendgrid.SendGridAPIClient(api_key=os.getenv("SENDGRID_API_KEY"))
+    from_addr = os.getenv("FROM_EMAIL", "noreply@pfs-fsbcologne.com")
 
+    # Load and render external HTML template
     with open("templates/thank_you_email.html", encoding="utf-8") as f:
         html_template = f.read()
 
@@ -343,25 +296,19 @@ def send_thank_you_email(to_email, name, interested=None, looking_for=None):
     )
 
     message = Mail(
-        from_email=os.getenv("FROM_EMAIL", "noreply@pfs-fsbcologne.com"),
+        from_email=from_addr,
         to_emails=to_email,
         subject="Thank You for Visiting PFS @ FSB Cologne 2025",
         html_content=html_content,
     )
 
-    # Attach all 6 brochures
-    brochures = [
-        ("static/PFS PADEL CATALOUGE.pdf", "PFS PADEL CATALOUGE.pdf"),
-        ("static/PFS PICKLEBALL CATALOGUE.pdf", "PFS PICKLEBALL CATALOGUE.pdf"),
-        ("static/POLSPAS CATALOGUE.pdf", "POLSPAS CATALOGUE.pdf"),
-        ("static/PFS CATALOGUE.pdf", "PFS CATALOGUE.pdf"),
-        ("static/PERGOLA CATALOGUE.pdf", "PERGOLA CATALOGUE.pdf"),
-        ("static/COLD PLUNG CATALOGUE.pdf", "COLD PLUNG CATALOGUE.pdf"),
-    ]
-    for path, fname in brochures:
-        attach_file(message, path, fname)
-
-    return sg.send(message)
+    try:
+        resp = sg.send(message)
+        app.logger.info(f"SendGrid status={resp.status_code}")
+        return resp.status_code == 202
+    except Exception as e:
+        app.logger.exception(f"SendGrid error: {e}")
+        return False
 
 if __name__ == "__main__":
     app.run(debug=True)
