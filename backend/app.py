@@ -7,7 +7,7 @@ from models import db, User
 from dotenv import load_dotenv
 from sqlalchemy.exc import IntegrityError
 import sendgrid
-from sendgrid.helpers.mail import Mail, Attachment, FileContent, FileName, FileType, Disposition
+from sendgrid.helpers.mail import Mail
 import base64
 
 # Load env
@@ -283,7 +283,7 @@ def _cloudinary_debug():
 
 def send_thank_you_email(to_email, name, interested=None, looking_for=None):
     sg = sendgrid.SendGridAPIClient(api_key=os.getenv("SENDGRID_API_KEY"))
-    from_addr = os.getenv("FROM_EMAIL", "noreply@pfs-fsbcologne.com")
+    from_addr = os.getenv("SENDGRID_FROM")
 
     # Load and render external HTML template
     with open("templates/thank_you_email.html", encoding="utf-8") as f:
