@@ -319,10 +319,6 @@ def send_thank_you_email(to_email, name, interested=None, looking_for=None):
     brochures = [
         ("static/PERGOLA CATALOGUE.pdf", "PERGOLA CATALOGUE.pdf"),
         ("static/PFS CATALOGUE.pdf", "PFS CATALOGUE.pdf"),
-        ("static/PFS PADEL CATALOUGE.pdf", "PFS PADEL CATALOUGE.pdf"),
-        ("static/PFS PICKLEBALL CATALOGUE.pdf", "PFS PICKLEBALL CATALOGUE.pdf"),
-        ("static/POLSPAS CATALOGUE.pdf", "POLSPAS CATALOGUE.pdf"),
-        ("static/COLD PLUNG CATALOGUE.pdf", "COLD PLUNG CATALOGUE.pdf"),
     ]
 
     for path, fname in brochures:
