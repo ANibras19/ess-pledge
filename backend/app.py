@@ -317,7 +317,7 @@ def send_thank_you_email(to_email, name, interested=None, looking_for=None):
 
     # Attach all six brochures from static/
     brochures = [
-        ("static/PERGOLA CATALOGUE.pdf", "PERGOLA CATALOGUE.pdf"),
+        ("static/POLSPAS CATALOGUE.pdf", "POLSPAS CATALOGUE.pdf"),
         ("static/PFS CATALOGUE.pdf", "PFS CATALOGUE.pdf"),
     ]
 
