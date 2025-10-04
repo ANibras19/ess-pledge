@@ -1,5 +1,15 @@
-import React, { useState, useContext } from "react";
+import React, { useState, useContext, useMemo } from "react";
 import { ApiContext } from "../App";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+  ResponsiveContainer,
+  LabelList,
+} from "recharts";
 
 function Admin() {
   const API_BASE = useContext(ApiContext);
@@ -67,6 +77,31 @@ function Admin() {
     URL.revokeObjectURL(url);
   };
 
+  // --- Chart Data ---
+  const interestedData = useMemo(() => {
+    const counts = { Investment: 0, Dealership: 0, Others: 0 };
+    users.forEach((u) => {
+      (u.interested || []).forEach((val) => {
+        if (counts[val] !== undefined) counts[val]++;
+      });
+    });
+    return Object.keys(counts).map((k) => ({ name: k, value: counts[k] }));
+  }, [users]);
+
+  const lookingForData = useMemo(() => {
+    const counts = {
+      "Sports courts & flooring": 0,
+      "Spa and wellness products": 0,
+      Padel: 0,
+    };
+    users.forEach((u) => {
+      (u.lookingFor || []).forEach((val) => {
+        if (counts[val] !== undefined) counts[val]++;
+      });
+    });
+    return Object.keys(counts).map((k) => ({ name: k, value: counts[k] }));
+  }, [users]);
+
   if (!authed) {
     return (
       <div style={styles.container}>
@@ -92,22 +127,29 @@ function Admin() {
   return (
     <div style={styles.container}>
       <h1 style={styles.title}>Admin Dashboard 📊</h1>
-      <button style={styles.exportBtn} onClick={exportCSV}>
-        Export CSV
-      </button>
 
+      <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+        <button style={styles.exportBtn} onClick={exportCSV}>
+          Export CSV
+        </button>
+        <span style={{ fontWeight: "bold", fontSize: "1rem" }}>
+          Total Leads: {users.length}
+        </span>
+      </div>
+
+      {/* Table */}
       <div style={styles.tableWrapper}>
         <table style={styles.table}>
           <thead>
             <tr>
-              <th>ID</th>
-              <th>Name</th>
-              <th>Email</th>
-              <th>Phone</th>
-              <th>Country</th>
-              <th>Pledge</th>
-              <th>Interested</th>
-              <th style={{ minWidth: "200px" }}>Looking For</th>
+              <th style={styles.th}>ID</th>
+              <th style={styles.th}>Name</th>
+              <th style={styles.th}>Email</th>
+              <th style={styles.th}>Phone</th>
+              <th style={styles.th}>Country</th>
+              <th style={styles.th}>Pledge</th>
+              <th style={styles.th}>Interested</th>
+              <th style={{ ...styles.th, minWidth: "200px" }}>Looking For</th>
             </tr>
           </thead>
           <tbody>
@@ -119,20 +161,51 @@ function Admin() {
                   transition: "background 0.2s ease",
                 }}
               >
-                <td>{u.id}</td>
-                <td>{u.name}</td>
-                <td>{u.email}</td>
-                <td>{u.phone}</td>
-                <td>{u.country}</td>
-                <td style={{ textAlign: "center" }}>
+                <td style={styles.td}>{u.id}</td>
+                <td style={styles.td}>{u.name}</td>
+                <td style={styles.td}>{u.email}</td>
+                <td style={styles.td}>{u.phone}</td>
+                <td style={styles.td}>{u.country}</td>
+                <td style={{ ...styles.td, textAlign: "center" }}>
                   {u.pledge ? "✅" : "❌"}
                 </td>
-                <td>{(u.interested || []).join(", ")}</td>
-                <td>{(u.lookingFor || []).join(", ")}</td>
+                <td style={styles.td}>{(u.interested || []).join(", ")}</td>
+                <td style={styles.td}>{(u.lookingFor || []).join(", ")}</td>
               </tr>
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* Charts */}
+      <div style={{ marginTop: "2rem" }}>
+        <h2 style={{ textAlign: "center" }}>Interested Breakdown</h2>
+        <ResponsiveContainer width="100%" height={300}>
+          <BarChart data={interestedData}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="name" />
+            <YAxis allowDecimals={false} />
+            <Tooltip />
+            <Bar dataKey="value" fill="#0d9488">
+              <LabelList dataKey="value" position="top" />
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+
+      <div style={{ marginTop: "2rem" }}>
+        <h2 style={{ textAlign: "center" }}>Looking For Breakdown</h2>
+        <ResponsiveContainer width="100%" height={300}>
+          <BarChart data={lookingForData}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="name" />
+            <YAxis allowDecimals={false} />
+            <Tooltip />
+            <Bar dataKey="value" fill="#1e3a8a">
+              <LabelList dataKey="value" position="top" />
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
       </div>
     </div>
   );
@@ -191,26 +264,34 @@ const styles = {
     border: "none",
   },
   tableWrapper: {
+    maxHeight: "650px", // ~19 rows before scroll
+    overflowY: "auto",
     overflowX: "auto",
-    border: "1px solid #ddd",
+    border: "1px solid #ccc",
     borderRadius: "8px",
     boxShadow: "0 2px 5px rgba(0,0,0,0.05)",
+    marginTop: "1rem",
   },
   table: {
     width: "100%",
     borderCollapse: "collapse",
-    fontSize: "0.9rem",
+    fontSize: "0.95rem",
+    tableLayout: "auto",
   },
-  "table th": {
+  th: {
     background: "#0d9488",
     color: "white",
-    padding: "0.75rem",
+    padding: "0.9rem 1rem",
     textAlign: "left",
-    border: "1px solid #ddd",
+    border: "1px solid #ccc",
+    minWidth: "120px",
   },
-  "table td": {
-    border: "1px solid #ddd",
-    padding: "0.6rem",
+  td: {
+    border: "1px solid #ccc",
+    padding: "0.9rem 1rem",
+    background: "white",
+    wordWrap: "break-word",
+    whiteSpace: "normal",
   },
 };
 
