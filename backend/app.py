@@ -7,7 +7,7 @@ from models import db, User
 from dotenv import load_dotenv
 from sqlalchemy.exc import IntegrityError
 import sendgrid
-from sendgrid.helpers.mail import Mail
+from sendgrid.helpers.mail import Mail, Attachment, FileContent, FileName, FileType, Disposition
 import base64
 
 # Load env
@@ -281,11 +281,24 @@ def _cloudinary_debug():
         "logo_id": os.getenv("CLOUDINARY_LOGO_PUBLIC_ID")
     })
 
+def attach_file(message, path, filename):
+    """Attach a local PDF file to the SendGrid email."""
+    with open(path, "rb") as f:
+        data = f.read()
+        encoded = base64.b64encode(data).decode()
+        attachment = Attachment(
+            FileContent(encoded),
+            FileName(filename),
+            FileType("application/pdf"),
+            Disposition("attachment")
+        )
+        message.add_attachment(attachment)
+
 def send_thank_you_email(to_email, name, interested=None, looking_for=None):
     sg = sendgrid.SendGridAPIClient(api_key=os.getenv("SENDGRID_API_KEY"))
     from_addr = os.getenv("SENDGRID_FROM")
 
-    # Load and render external HTML template
+    # Load and render HTML template
     with open("templates/thank_you_email.html", encoding="utf-8") as f:
         html_template = f.read()
 
@@ -301,6 +314,19 @@ def send_thank_you_email(to_email, name, interested=None, looking_for=None):
         subject="Thank You for Visiting PFS @ FSB Cologne 2025",
         html_content=html_content,
     )
+
+    # Attach all six brochures from static/
+    brochures = [
+        ("static/PERGOLA CATALOGUE.pdf", "PERGOLA CATALOGUE.pdf"),
+        ("static/PFS CATALOGUE.pdf", "PFS CATALOGUE.pdf"),
+        ("static/PFS PADEL CATALOUGE.pdf", "PFS PADEL CATALOUGE.pdf"),
+        ("static/PFS PICKLEBALL CATALOGUE.pdf", "PFS PICKLEBALL CATALOGUE.pdf"),
+        ("static/POLSPAS CATALOGUE.pdf", "POLSPAS CATALOGUE.pdf"),
+        ("static/COLD PLUNG CATALOGUE.pdf", "COLD PLUNG CATALOGUE.pdf"),
+    ]
+
+    for path, fname in brochures:
+        attach_file(message, path, fname)
 
     try:
         resp = sg.send(message)
